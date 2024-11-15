@@ -10,82 +10,57 @@ if (!isset($_SESSION['sturecmsuid'])) {
 
 $uid = $_SESSION['sturecmsuid'];
 
-// Fetch the student's details (optional: can be used for display)
+// Fetch the student's details and fees
 $sql = "SELECT * FROM tblstudent WHERE StuID = :uid";
 $query = $dbh->prepare($sql);
 $query->bindParam(':uid', $uid, PDO::PARAM_STR);
 $query->execute();
 $student = $query->fetch(PDO::FETCH_OBJ);
 
-// Fetch remaining balance for the selected year (if any)
-$remainingBalance = null;
-$yearSelected = null;
-$paymentWarning = '';
+// Check if the student is found
+if (!$student) {
+    echo "Student not found.";
+    exit();
+}
 
-// Handle form submission for fee payment
+// Handle form submission for updating fee payments
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $year = $_POST['year'];
-    $tuition_fee = $_POST['tuition_fee'];
-    $hostel_fee = $_POST['hostel_fee'];
-    $total_fee = $tuition_fee + $hostel_fee;
+    // Get the updated fees and payment details
+    $tuitionFeePaid = $_POST['PaidTuitionFees'];
+    $hostelFeePaid = $_POST['PaidHostelFees'];
+    $paymentDate = date('Y-m-d H:i:s');
 
-    // Fetch the most recent remaining balance for the selected year
-    $sql = "SELECT RemainingBalance FROM tblfees WHERE StuID = :uid AND Year = :year ORDER BY PaymentDate DESC LIMIT 1";
+    // Calculate remaining fees
+    $remainingTuitionFees = $student->TuitionFees - $tuitionFeePaid;
+    $remainingHostelFees = $student->HostelFees - $hostelFeePaid;
+
+    // Update the fees data in the database
+    $sql = "UPDATE tblstudent SET 
+                PaidTuitionFees = :PaidTuitionFees,
+                PaidHostelFees = :PaidHostelFees,
+                PaidDate = :PaidDate,
+                RemainingTuitionFees = :RemainingTuitionFees,
+                RemainingHostelFees = :RemainingHostelFees
+            WHERE StuID = :StuID";
+    
     $query = $dbh->prepare($sql);
-    $query->bindParam(':uid', $uid, PDO::PARAM_STR);
-    $query->bindParam(':year', $year, PDO::PARAM_STR);
+    $query->bindParam(':PaidTuitionFees', $tuitionFeePaid, PDO::PARAM_STR);
+    $query->bindParam(':PaidHostelFees', $hostelFeePaid, PDO::PARAM_STR);
+    $query->bindParam(':PaidDate', $paymentDate, PDO::PARAM_STR);
+    $query->bindParam(':RemainingTuitionFees', $remainingTuitionFees, PDO::PARAM_STR);
+    $query->bindParam(':RemainingHostelFees', $remainingHostelFees, PDO::PARAM_STR);
+    $query->bindParam(':StuID', $uid, PDO::PARAM_STR);
     $query->execute();
-    $feeDetails = $query->fetch(PDO::FETCH_OBJ);
 
-    if ($feeDetails) {
-        // Subtract the total fee from the existing remaining balance
-        $remainingBalance = $feeDetails->RemainingBalance - $total_fee;
-    } else {
-        // If no record exists, assume initial balance of ₹225,000
-        $remainingBalance = 225000 - $total_fee;
-    }
-
-    // Check if the remaining balance is negative and prevent overpayment
-    if ($remainingBalance < 0) {
-        $paymentWarning = "Warning: The total fees exceed the remaining balance by ₹" . abs($remainingBalance) . ". Please adjust the amount to avoid overpayment.";
-    } else {
-        // Update the balance in tblfees
-        $sql = "INSERT INTO tblfees (StuID, FeeAmount, Year, FeeStatus, RemainingBalance, PaymentDate) 
-                VALUES (:StuID, :FeeAmount, :Year, 'Paid', :RemainingBalance, NOW())";
-        $query = $dbh->prepare($sql);
-        $query->bindParam(':StuID', $uid, PDO::PARAM_STR);
-        $query->bindParam(':FeeAmount', $total_fee, PDO::PARAM_STR);
-        $query->bindParam(':Year', $year, PDO::PARAM_STR);
-        $query->bindParam(':RemainingBalance', $remainingBalance, PDO::PARAM_STR);
-        $query->execute();
-
-        echo "<script>alert('Fees for $year have been paid successfully!');</script>";
-
-        // Reload the page to reset the form
-        header('Location: fees.php');
-        exit();
-    }
+    echo "<script>alert('Payment updated successfully!');</script>";
 }
 
-// Handle year selection change to fetch remaining balance
-if (isset($_GET['year'])) {
-    $yearSelected = $_GET['year'];
-
-    // Fetch the most recent remaining balance for the selected year
-    $sql = "SELECT RemainingBalance FROM tblfees WHERE StuID = :uid AND Year = :year ORDER BY PaymentDate DESC LIMIT 1";
-    $query = $dbh->prepare($sql);
-    $query->bindParam(':uid', $uid, PDO::PARAM_STR);
-    $query->bindParam(':year', $yearSelected, PDO::PARAM_STR);
-    $query->execute();
-    $feeDetails = $query->fetch(PDO::FETCH_OBJ);
-
-    // If no payment record exists, assume the default balance of ₹225,000
-    if ($feeDetails) {
-        $remainingBalance = $feeDetails->RemainingBalance;
-    } else {
-        $remainingBalance = 225000; // Default balance if no previous record
-    }
-}
+// Fetch the updated student data with fees
+$sql = "SELECT * FROM tblstudent WHERE StuID = :uid";
+$query = $dbh->prepare($sql);
+$query->bindParam(':uid', $uid, PDO::PARAM_STR);
+$query->execute();
+$student = $query->fetch(PDO::FETCH_OBJ);
 ?>
 
 <!DOCTYPE html>
@@ -93,10 +68,58 @@ if (isset($_GET['year'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pay Fees</title>
+    <title>Fees Details</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="vendors/simple-line-icons/css/simple-line-icons.css">
     <link rel="stylesheet" href="vendors/css/vendor.bundle.base.css">
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .card-header {
+            background-color: #007bff;
+            color: white;
+            text-align: center;
+            padding: 15px;
+            font-size: 20px;
+            border-radius: 10px 10px 0 0;
+        }
+        .table th, .table td {
+            text-align: center;
+        }
+        .form-control {
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .form-group label {
+            font-weight: bold;
+        }
+        .form-group input {
+            margin-top: 10px;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border: none;
+            color: white;
+            font-weight: bold;
+            padding: 10px 20px;
+            border-radius: 5px;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .icon {
+            color: #28a745;
+            font-size: 18px;
+            margin-right: 10px;
+        }
+    </style>
 </head>
 <body>
     <div class="container-scroller">
@@ -108,44 +131,70 @@ if (isset($_GET['year'])) {
                     <div class="row">
                         <div class="col-lg-12 stretch-card">
                             <div class="card">
+                                <div class="card-header">
+                                    <h4 class="card-title">Student Fees Details</h4>
+                                </div>
                                 <div class="card-body">
-                                    <h4 class="card-title">Pay Tuition and Hostel Fees</h4>
+                                    <h5 class="mb-4">Welcome, <?php echo htmlentities($student->StudentName); ?>!</h5>
 
-                                    <!-- Display remaining balance based on selected year -->
-                                    <?php if ($remainingBalance !== null): ?>
-                                        <p><strong>Remaining Balance for <?php echo htmlentities($yearSelected); ?>: ₹<?php echo number_format($remainingBalance, 2); ?></strong></p>
-                                    <?php endif; ?>
+                                    <!-- Display student's fee details -->
+                                    <table class="table table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th>Detail</th>
+                                                <th>Amount (₹)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>Tuition Fee</td>
+                                                <td><?php echo number_format($student->TuitionFees, 2); ?></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Hostel Fee</td>
+                                                <td><?php echo number_format($student->HostelFees, 2); ?></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Total Fees</td>
+                                                <td><?php echo number_format($student->TuitionFees + $student->HostelFees, 2); ?></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Paid Tuition Fee</td>
+                                                <td><?php echo number_format($student->PaidTuitionFees, 2); ?></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Paid Hostel Fee</td>
+                                                <td><?php echo number_format($student->PaidHostelFees, 2); ?></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Remaining Tuition Fee</td>
+                                                <td><?php echo number_format($student->TuitionFees - $student->PaidTuitionFees, 2); ?></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Remaining Hostel Fee</td>
+                                                <td><?php echo number_format($student->HostelFees - $student->PaidHostelFees, 2); ?></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Remaining Total Fee</td>
+                                                <td><?php echo number_format(($student->TuitionFees + $student->HostelFees) - ($student->PaidTuitionFees + $student->PaidHostelFees), 2); ?></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
 
-                                    <!-- Display warning if overpayment is attempted -->
-                                    <?php if ($paymentWarning !== ''): ?>
-                                        <div class="alert alert-warning">
-                                            <?php echo $paymentWarning; ?>
-                                        </div>
-                                    <?php endif; ?>
-
+                                    <br><br>
+                                    <!-- Form to make payment -->
                                     <form method="POST" action="fees.php">
                                         <div class="form-group">
-                                            <label for="year">Select Year</label>
-                                            <select class="form-control" id="year" name="year" required onchange="window.location.href='fees.php?year=' + this.value;">
-                                                <option value="">Select Year</option>
-                                                <option value="1st Year" <?php if ($yearSelected == '1st Year') echo 'selected'; ?>>1st Year</option>
-                                                <option value="2nd Year" <?php if ($yearSelected == '2nd Year') echo 'selected'; ?>>2nd Year</option>
-                                                <option value="3rd Year" <?php if ($yearSelected == '3rd Year') echo 'selected'; ?>>3rd Year</option>
-                                                <option value="4th Year" <?php if ($yearSelected == '4th Year') echo 'selected'; ?>>4th Year</option>
-                                            </select>
+                                            <label for="PaidTuitionFees">Paid Tuition Fees</label>
+                                            <input type="number" class="form-control" id="PaidTuitionFees" name="PaidTuitionFees" required>
                                         </div>
 
                                         <div class="form-group">
-                                            <label for="tuition_fee">Tuition Fee</label>
-                                            <input type="number" class="form-control" id="tuition_fee" name="tuition_fee" required>
+                                            <label for="PaidHostelFees">Paid Hostel Fees</label>
+                                            <input type="number" class="form-control" id="PaidHostelFees" name="PaidHostelFees" required>
                                         </div>
 
-                                        <div class="form-group">
-                                            <label for="hostel_fee">Hostel Fee</label>
-                                            <input type="number" class="form-control" id="hostel_fee" name="hostel_fee" required>
-                                        </div>
-
-                                        <button type="submit" class="btn btn-primary">Pay Fees</button>
+                                        <button type="submit" class="btn btn-primary">Update Payment</button>
                                     </form>
                                 </div>
                             </div>
