@@ -80,12 +80,16 @@ INSERT INTO `tblclass` (`ID`, `ClassName`, `Section`, `CreationDate`) VALUES
 --
 
 CREATE TABLE `tblnotice` (
-  `ID` int(5) NOT NULL,
-  `NoticeTitle` mediumtext DEFAULT NULL,
-  `ClassId` int(10) DEFAULT NULL,
-  `NoticeMsg` mediumtext DEFAULT NULL,
-  `CreationDate` timestamp NULL DEFAULT current_timestamp()
+  `ID` INT(5) NOT NULL AUTO_INCREMENT,
+  `NoticeTitle` MEDIUMTEXT DEFAULT NULL,
+  `StuID` VARCHAR(200) NOT NULL,  -- Reference to the StuID of the student
+  `NoticeMsg` MEDIUMTEXT DEFAULT NULL,
+  `CreationDate` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`ID`),
+  FOREIGN KEY (`StuID`) REFERENCES `tblstudent`(`StuID`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+
 
 --
 -- Dumping data for table `tblnotice`
@@ -164,6 +168,15 @@ CREATE TABLE `tblstudent` (
     PRIMARY KEY (`StuID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
+CREATE TABLE tblnotice_reactions (
+    ReactionID INT AUTO_INCREMENT PRIMARY KEY,
+    NoticeID INT,
+    UserID INT,
+    ReactionType ENUM('like', 'dislike', 'love', 'funny', 'sad') NOT NULL,
+    ReactionDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (NoticeID) REFERENCES tblpublicnotice(ID),
+    FOREIGN KEY (UserID) REFERENCES tblstudent(StuID)
+);
 
 
 --
@@ -180,6 +193,38 @@ INSERT INTO `tblstudent` (`ID`, `StudentName`, `StudentEmail`, `StudentClass`, `
 --
 -- Indexes for dumped tables
 --
+
+CREATE TABLE tblfees (
+    FeeID INT AUTO_INCREMENT PRIMARY KEY,
+    StuID VARCHAR(200) NOT NULL,  -- This should match the data type of StuID in tblstudent
+    TotalFees DECIMAL(10, 2) NOT NULL,
+    PaidAmount DECIMAL(10, 2) DEFAULT 0,
+    FeeStatus ENUM('Pending', 'Paid') DEFAULT 'Pending',
+    PaymentDate TIMESTAMP NULL,
+    FOREIGN KEY (StuID) REFERENCES tblstudent(StuID) -- Ensure the data type matches
+);
+
+
+SELECT * FROM sturecdb.tblfees;
+-- For 1st Year
+INSERT INTO tblfees (StuID, FeeAmount, Year, FeeStatus, RemainingBalance, PaymentDate)
+SELECT StuID, 0 AS FeeAmount, '1st Year' AS Year, 'Unpaid' AS FeeStatus, 225000 AS RemainingBalance, NOW() 
+FROM tblstudent WHERE StuID NOT IN (SELECT StuID FROM tblfees WHERE Year = '1st Year');
+
+-- For 2nd Year
+INSERT INTO tblfees (StuID, FeeAmount, Year, FeeStatus, RemainingBalance, PaymentDate)
+SELECT StuID, 0 AS FeeAmount, '2nd Year' AS Year, 'Unpaid' AS FeeStatus, 225000 AS RemainingBalance, NOW() 
+FROM tblstudent WHERE StuID NOT IN (SELECT StuID FROM tblfees WHERE Year = '2nd Year');
+
+-- For 3rd Year
+INSERT INTO tblfees (StuID, FeeAmount, Year, FeeStatus, RemainingBalance, PaymentDate)
+SELECT StuID, 0 AS FeeAmount, '3rd Year' AS Year, 'Unpaid' AS FeeStatus, 225000 AS RemainingBalance, NOW() 
+FROM tblstudent WHERE StuID NOT IN (SELECT StuID FROM tblfees WHERE Year = '3rd Year');
+
+-- For 4th Year
+INSERT INTO tblfees (StuID, FeeAmount, Year, FeeStatus, RemainingBalance, PaymentDate)
+SELECT StuID, 0 AS FeeAmount, '4th Year' AS Year, 'Unpaid' AS FeeStatus, 225000 AS RemainingBalance, NOW() 
+FROM tblstudent WHERE StuID NOT IN (SELECT StuID FROM tblfees WHERE Year = '4th Year');
 
 --
 -- Indexes for table `tbladmin`

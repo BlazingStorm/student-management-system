@@ -1,106 +1,89 @@
 <?php
 session_start();
-// error_reporting(0);
 include('includes/dbconnection.php');
 
-// Check if the session variable is empty or not set
-if (empty($_SESSION['sturecmsstuid'])) {
-    header('location:logout.php');
-    exit(); // Always call exit() after a header redirect to prevent further execution
-} else {
-    // Fetch all public notices
-    $sql = "SELECT ID, NoticeTitle, NoticeMessage, CreationDate FROM tblpublicnotice ORDER BY CreationDate DESC"; 
-    $query = $dbh->prepare($sql);
-    $query->execute();
-    $results = $query->fetchAll(PDO::FETCH_OBJ);
+// Check if student is logged in
+if (!isset($_SESSION['sturecmsuid'])) {
+    header('Location: login.php');
+    exit();
+}
+
+$uid = $_SESSION['sturecmsuid']; // Get the logged-in student's ID
+
+// Fetch personal notices specific to the student from tblnotice
+$sql = "SELECT * FROM tblnotice WHERE StuID = :stuID ORDER BY CreationDate DESC";
+$query = $dbh->prepare($sql);
+$query->bindParam(':stuID', $uid, PDO::PARAM_STR);
+$query->execute();
+$personalNotices = $query->fetchAll(PDO::FETCH_OBJ);
+
+// Fetch public notices (which are visible to all students) from tblpublicnotice
+$sqlPublic = "SELECT * FROM tblpublicnotice ORDER BY CreationDate DESC";
+$queryPublic = $dbh->prepare($sqlPublic);
+$queryPublic->execute();
+$publicNotices = $queryPublic->fetchAll(PDO::FETCH_OBJ);
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <title>Student Management System | View Notice</title>
-    <!-- plugins:css -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Notices</title>
     <link rel="stylesheet" href="vendors/simple-line-icons/css/simple-line-icons.css">
-    <link rel="stylesheet" href="vendors/flag-icon-css/css/flag-icon.min.css">
     <link rel="stylesheet" href="vendors/css/vendor.bundle.base.css">
-    <!-- Layout styles -->
-    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/style.css">
 </head>
+
 <body>
     <div class="container-scroller">
-        <!-- partial:partials/_navbar.html -->
         <?php include_once('includes/header.php'); ?>
-        <!-- partial -->
         <div class="container-fluid page-body-wrapper">
-            <!-- partial:partials/_sidebar.html -->
             <?php include_once('includes/sidebar.php'); ?>
-            <!-- partial -->
             <div class="main-panel">
                 <div class="content-wrapper">
-                    <div class="page-header">
-                        <h3 class="page-title">View Notice</h3>
-                        <nav aria-label="breadcrumb">
-                            <ol class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="dashboard.php">Dashboard</a></li>
-                                <li class="breadcrumb-item active" aria-current="page">View Notice</li>
-                            </ol>
-                        </nav>
-                    </div>
+                    <h4 class="card-title">Your Personal Notices</h4>
 
-                    <div class="row">
-                        <div class="col-12 grid-margin stretch-card">
+                    <!-- Personal Notices -->
+                    <?php if (count($personalNotices) > 0): ?>
+                        <?php foreach ($personalNotices as $notice): ?>
                             <div class="card">
                                 <div class="card-body">
-                                    <?php
-                                    if ($query->rowCount() > 0) {
-                                        echo '<table border="1" class="table table-bordered mg-b-0">';
-                                        foreach ($results as $row) {
-                                            echo '<tr align="center" class="table-warning">
-                                                    <td colspan="4" style="font-size:20px;color:blue">Notice</td>
-                                                  </tr>
-                                                  <tr class="table-info">
-                                                      <th>Notice Announced Date</th>
-                                                      <td>' . $row->CreationDate . '</td>
-                                                  </tr>
-                                                  <tr class="table-info">
-                                                      <th>Notice Title</th>
-                                                      <td>' . $row->NoticeTitle . '</td>
-                                                  </tr>
-                                                  <tr class="table-info">
-                                                      <th>Message</th>
-                                                      <td>' . $row->NoticeMessage . '</td>
-                                                  </tr>';
-                                        }
-                                        echo '</table>';
-                                    } else {
-                                        echo '<p style="color:red;">No Notice Found</p>';
-                                    }
-                                    ?>
+                                    <h5><?php echo htmlentities($notice->NoticeTitle); ?></h5>
+                                    <p><?php echo nl2br(htmlentities($notice->NoticeMsg)); ?></p>
+                                    <p><small>Posted on: <?php echo htmlentities($notice->CreationDate); ?></small></p>
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <p>No personal notices available at the moment.</p>
+                    <?php endif; ?>
 
+                    <h4 class="card-title">Public Notices</h4>
+
+                    <!-- Public Notices -->
+                    <?php if (count($publicNotices) > 0): ?>
+                        <?php foreach ($publicNotices as $notice): ?>
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5><?php echo htmlentities($notice->NoticeTitle); ?></h5>
+                                    <p><?php echo nl2br(htmlentities($notice->NoticeMessage)); ?></p>
+                                    <p><small>Posted on: <?php echo htmlentities($notice->CreationDate); ?></small></p>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <p>No public notices available at the moment.</p>
+                    <?php endif; ?>
                 </div>
-                <!-- content-wrapper ends -->
-                <!-- partial:partials/_footer.html -->
-                <?php include_once('includes/footer.php'); ?>
-                <!-- partial -->
             </div>
-            <!-- main-panel ends -->
         </div>
-        <!-- page-body-wrapper ends -->
     </div>
-    <!-- container-scroller -->
 
-    <!-- plugins:js -->
     <script src="vendors/js/vendor.bundle.base.js"></script>
-    <!-- endinject -->
     <script src="js/off-canvas.js"></script>
     <script src="js/misc.js"></script>
 </body>
-</html>
 
-<?php
-}
-?>
+</html>

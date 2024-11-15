@@ -1,20 +1,3 @@
-<?php
-// Remove session_start() here because it was already called earlier
-if (!isset($_SESSION['sturecmsuid'])) {
-    header("Location: login.php");
-    exit();
-}
-
-// Database connection and query to fetch student info
-include('dbconnection.php');
-$uid = $_SESSION['sturecmsuid'];
-$sql = "SELECT * FROM tblstudent WHERE StuID = :uid";
-$query = $dbh->prepare($sql);
-$query->bindParam(':uid', $uid, PDO::PARAM_STR);
-$query->execute();
-$results = $query->fetchAll(PDO::FETCH_OBJ);
-?>
-
 <nav class="sidebar sidebar-offcanvas" id="sidebar">
     <ul class="nav">
         <li class="nav-item nav-profile">
@@ -43,8 +26,20 @@ $results = $query->fetchAll(PDO::FETCH_OBJ);
         </li>
         <li class="nav-item">
             <a class="nav-link" href="view-notice.php">
-                <span class="menu-title">View Notice</span>
+                <span class="menu-title">View Notices</span>
                 <i class="icon-book-open menu-icon"></i>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="showattendace.php">
+                <span class="menu-title">Attendance</span>
+                <i class="icon-check menu-icon"></i>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="fees.php">
+                <span class="menu-title">Fees</span>
+                <i class="icon-wallet menu-icon"></i>
             </a>
         </li>
     </ul>
